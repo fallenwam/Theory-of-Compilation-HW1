@@ -1,6 +1,9 @@
 %{
 #include "tokens.hpp"
 #include "output.hpp"
+
+char string_buf[1025];
+int buf_ptr = 0;
 %}
 
 %option yylineno
@@ -47,26 +50,74 @@ TODO: finish STRING, handle unknown words (check error handling)
 // calling functions will be in main.cpp (aside from error handling)
 // the current code does not handle hexadecimal
 
-string start prompt         BEGIN(STRING) //enter string mode
-<STRING>rules here          ??
-<STRING>string end          BEGIN(INITIAL) // exit string mode
-<STRING>\r\n|\r|\n|<<EOF>>  {
-                            output::errorUnclosedString();
-                            exit(1);
-                            } //string terminated early
-<STRING>\\[^\r\n]           {
-                            output::errorUndefinedEscape(yytext + 1);
-                            exit(1);
-                            } // Catches a backslash followed by any character that isn't a newline
-                              // If it didn't match a valid escape (like \n, \t, \", \\) earlier, it's invalid
-                              // the prompt to enter this maybe isnt correct. the + 1 is to ignore the \ as required
+\"                              {
+                                    BEGIN(STRING);
+                                    buf_ptr = 0;
+                                }
 
+<STRING>\"                      {
+                                    BEGIN(INITIAL);
+                                    string_buf[buf_ptr] = '\0';
+                                    return STRING;
+                                }
 
+<STRING>\\[\\\"nrt0]            {
+                                    string_buf[buf_ptr++] = yytext[0];
+                                     string_buf[buf_ptr++] = yytext[1];
+                                } // valid basic escapes
 
-{whitespace}+               { /*do nothing since yylineno inc. is automatic*/ }
-.                           {
-                            output::errorUnknownChar(yytext[0]);
-                            exit(1)}
+<STRING>\\x(09|0[aA]|0[dD]|[2-6][0-9a-fA-F]|7[0-9a-eA-E])   {
+                                                                for(int i = 0; i < yyleng; i++){
+                                                                    string_buf[buf_ptr++] = yytext[i];
+                                                                }
+                                                            } // valid hex escapes
+
+<STRING>\\x[0-9a-fA-F]{2}       {
+                                    output::errorUndefinedEscape(yytext + 1);
+                                    exit(1);
+                                } //invalid hex escapes
+
+<STRING>\\x[^\"\n\r]{0,2}       {
+                                    output::errorUndefinedEscape(yytext + 1);
+                                    exit(1);
+                                } //malformed hex escapes
+
+<STRING>\\[^\n\r]               {
+                                    output::errorUndefinedEscape(yytext + 1);
+                                    exit(1);
+                                } // any other invalid escapes
+
+<STRING>\\?(\r\n|\r|\n)         {
+                                    output::errorUnclosedString();
+                                    exit(1);
+                                } //string terminated early
+
+<STRING><<EOF>>                 {
+                                    output::errorUnclosedString();
+                                    exit(1);
+                                } //string terminated early
+
+<STRING>\\                      {
+                                    output::errorUnclosedString();
+                                    exit(1);
+                                } //string terminated early
+
+<STRING>([\x20-\x21\x23-\x5B\x5D-\x7E\t])+  {
+                                                for(int i = 0; i < yyleng; i++) {
+                                                    string_buf[buf_ptr++] = yytext[i];
+                                                }
+                                            } //valid normal characters
+
+<STRING>.                       {
+                                    output::errorUnknownChar(yytext[0]);
+                                    exit(1);
+                                }
+
+{whitespace}+                   {} //do nothing since yylineno increases automatically
+.                               {
+                                    output::errorUnknownChar(yytext[0]);
+                                    exit(1);
+                                }
 
 %%
 // User code section
