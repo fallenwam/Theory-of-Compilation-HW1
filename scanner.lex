@@ -43,7 +43,7 @@ printable           [\x20-\x7E\t\n\r]
 \/\/[^\r\n]*                return COMMENT;
 [a-zA-Z][a-zA-Z0-9]*        return ID;
 0|[1-9][0-9]*               return NUM;
-(0|[1-9][0-9]*)b            return NUM_B;
+(NUM)b            return NUM_B;
 
 TODO: finish STRING, handle unknown words (check error handling)
 // DO NOT USE FUNCTIONS HERE. scanner.lex only for token identification
