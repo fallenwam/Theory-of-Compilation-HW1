@@ -1,0 +1,39 @@
+cat << 'EOF' > selfcheck3
+#!/bin/bash
+rm -rf tmp_sc3 && mkdir tmp_sc3 && unzip -q "$1" -d tmp_sc3 && cd tmp_sc3 || exit 1
+flex scanner.lex && g++ -std=c++17 -o hw1.out *.c *.cpp || { echo "Build failed!"; exit 1; }
+
+check() {
+    printf "$1" | ./hw1.out > out.res 2>&1
+    printf "$2" > out.exp
+    diff -u out.exp out.res || { printf "Failed on: %b\n" "$1"; cd ..; rm -rf tmp_sc3; exit 1; }
+}
+
+# אנטי-דוגמאות של מילים שמורות
+check 'diov long bit nibble boolean And Or light Not True 1 False 0 Return IF Else ELSE While Break BREAK Continue If\n' \
+'1 ID diov\n1 ID long\n1 ID bit\n1 ID nibble\n1 ID boolean\n1 ID And\n1 ID Or\n1 ID light\n1 ID Not\n1 ID True\n1 NUM 1\n1 ID False\n1 NUM 0\n1 ID Return\n1 ID IF\n1 ID Else\n1 ID ELSE\n1 ID While\n1 ID Break\n1 ID BREAK\n1 ID Continue\n1 ID If\n'
+
+# אנטי-דוגמאות של סוגריים, RELOP, BINOP והערת בלוק /* ... */
+check '<>\n' '1 RELOP <\n1 RELOP >\n'
+check '?\n' 'ERROR: Unknown character ?\n'
+check ':\n' 'ERROR: Unknown character :\n'
+check '/* my\ncomment */\n' '1 BINOP /\n1 BINOP *\n1 ID my\n2 ID comment\n2 BINOP *\n2 BINOP /\n'
+
+# אנטי-דוגמאות של ID, NUM, NUM_B
+check '12AB 42 050 050b 50\n' '1 NUM 12\n1 ID AB\n1 NUM 42\n1 NUM 0\n1 NUM 50\n1 NUM 0\n1 NUM_B 50b\n1 NUM 50\n'
+check 'big_x\n' '1 ID big\nERROR: Unknown character _\n'
+check '5.6\n' '1 NUM 5\nERROR: Unknown character .\n'
+check '5.6b\n' '1 NUM 5\nERROR: Unknown character .\n'
+
+# אנטי-דוגמאות של STRING
+check '\x27unmatching"\n' 'ERROR: Unknown character \x27\n'
+check '"unclosed' 'ERROR: Unclosed string\n'
+check '"2-lined\nString"\n' 'ERROR: Unclosed string\n'
+check '"ba-"-d"\n' '1 STRING ba-\n1 BINOP -\n1 ID d\nERROR: Unclosed string\n'
+check '"bad \\\nescape"\n' 'ERROR: Unclosed string\n'
+
+cd .. && rm -rf tmp_sc3
+echo "All anti-examples passed! :)"
+EOF
+scp selfcheck3 yair-l@cscomp.cs.technion.ac.il:~/
+ssh -t yair-l@cscomp.cs.technion.ac.il "sed -i 's/\r$//' selfcheck3 && chmod +x selfcheck3 && ./selfcheck3 test.zip"

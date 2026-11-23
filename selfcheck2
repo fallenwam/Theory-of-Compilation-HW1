@@ -1,0 +1,123 @@
+#!/bin/bash
+
+testsurl="https://github.com/guyarbel/HW1_tests.git"
+tmpdir="selfcheck2_tmp"
+
+if [ -z "$1" ]; then
+	echo "Usage: ./"$( basename "$0" )" <your submission zip file>"
+	exit
+fi
+
+if [ ! -f "$1" ]; then
+	echo "Submission zip file not found!"
+	exit
+fi
+
+rm -rf "$tmpdir" &> /dev/null
+if [ -d "$tmpdir" ]; then
+	echo "Cannot clear tmp directory. Please delete '"$tmpdir"' manually and try again"
+	exit
+fi
+mkdir "$tmpdir" &> /dev/null
+
+unzip "$1" -d "$tmpdir" &> /dev/null
+if [[ $? != 0 ]]; then
+	echo "Unable to unzip submission file!"
+	exit
+fi
+
+cd "$tmpdir"
+if [ ! -f scanner.lex ]; then
+	echo "File scanner.lex not found!"
+	exit
+fi
+
+flex scanner.lex &> /dev/null
+if [[ $? != 0 ]]; then
+	echo "Cannot build submission! flex"
+	exit
+fi
+g++ -std=c++17 -o hw1.out *.c *.cpp &> /dev/null
+if [[ $? != 0 ]]; then
+	echo "Cannot build submission! g++"
+	exit
+fi
+if [ ! -f hw1.out ]; then
+	echo "Cannot build submission! last"
+	exit
+fi
+
+git clone "$testsurl" &> /dev/null
+if [ ! -d HW1_tests ]; then
+	echo "Unable to download official tests (t1-t2)!"
+	exit
+fi
+cd HW1_tests
+mv * ../
+cd ..
+
+# --- Edge Case Tests (t3 - t12) ---
+
+# t3: Keywords, Case-sensitivity, Leading zeros, Operators, Comments, Line numbers
+printf 'void int byte bool and or not true false return if else while break continue\niffy IF True False Return x123 A0\n0 0b 102 102b 050 050b\n= == != < > <= >= + - * / ( ) { } ; ,\n// comment with // and "quotes" and \\q\nint y;\n' > t3.in
+printf '1 VOID void\n1 INT int\n1 BYTE byte\n1 BOOL bool\n1 AND and\n1 OR or\n1 NOT not\n1 TRUE true\n1 FALSE false\n1 RETURN return\n1 IF if\n1 ELSE else\n1 WHILE while\n1 BREAK break\n1 CONTINUE continue\n2 ID iffy\n2 ID IF\n2 ID True\n2 ID False\n2 ID Return\n2 ID x123\n2 ID A0\n3 NUM 0\n3 NUM_B 0b\n3 NUM 102\n3 NUM_B 102b\n3 NUM 0\n3 NUM 50\n3 NUM 0\n3 NUM_B 50b\n4 ASSIGN =\n4 RELOP ==\n4 RELOP !=\n4 RELOP <\n4 RELOP >\n4 RELOP <=\n4 RELOP >=\n4 BINOP +\n4 BINOP -\n4 BINOP *\n4 BINOP /\n4 LPAREN (\n4 RPAREN )\n4 LBRACE {\n4 RBRACE }\n4 SC ;\n4 COMMA ,\n5 COMMENT //\n6 INT int\n6 ID y\n6 SC ;\n' > t3.out
+
+# t4: Empty string, Valid escapes, Hex upper/lower, Null truncation, Comment chars inside string
+printf '""\n"Hello \\x57orld!\\r\\nThis\\tis\\t\\x63\\x6f\\x6f\\x6C, as always."\n"abc\\0def\\x41"\n"// not a comment \\" \\\\ '\''single'\''"\n' > t4.in
+printf '1 STRING \n2 STRING Hello World!\r\nThis\tis\tcool, as always.\n3 STRING abc\n4 STRING // not a comment " \\ '\''single'\''\n' > t4.out
+
+# t5: Invalid escape AFTER \0 (must still be checked and fail)
+printf '"abc\\0\\q"\n' > t5.in
+printf 'ERROR: Undefined escape sequence q\n' > t5.out
+
+# t6: Non-printable hex \x00
+printf '"\\x00"\n' > t6.in
+printf 'ERROR: Undefined escape sequence x00\n' > t6.out
+
+# t7: Non-printable hex \xFF
+printf '"\\xFF"\n' > t7.in
+printf 'ERROR: Undefined escape sequence xFF\n' > t7.out
+
+# t8: Truncated hex at end of string "hey \xF"
+printf '"hey \\xF"\n' > t8.in
+printf 'ERROR: Undefined escape sequence xF\n' > t8.out
+
+# t9: Non-hex digits in \xG1
+printf '"\\xG1"\n' > t9.in
+printf 'ERROR: Undefined escape sequence xG1\n' > t9.out
+
+# t10: Unclosed string broken by newline
+printf '"unclosed\nline"\n' > t10.in
+printf 'ERROR: Unclosed string\n' > t10.out
+
+# t11: Unclosed string ending with backslash at EOF
+printf '"abc\\' > t11.in
+printf 'ERROR: Unclosed string\n' > t11.out
+
+# t12: Unknown character outside string (underscore in big_x)
+printf 'big_x\n' > t12.in
+printf '1 ID big\nERROR: Unknown character _\n' > t12.out
+
+numtests=12
+i="1"
+while [ $i -le $numtests ]; do
+	./hw1.out < t$i.in >& t$i.res
+	diff t$i.res t$i.out &> /dev/null
+	if [[ $? != 0 ]]; then
+		echo "Failed test #$i!"
+		echo "--- Expected (t$i.out) ---"
+		cat t$i.out
+		echo "--- Actual (t$i.res) ---"
+		cat t$i.res
+		cd .. &> /dev/null
+		rm -rf "$tmpdir"
+		exit
+	fi
+	i=$[$i+1]
+done
+
+cd .. &> /dev/null
+rm -rf "$tmpdir"
+
+echo "Ok to submit :) (Passed all 12 tests!)"
+exit
