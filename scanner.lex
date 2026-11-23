@@ -46,10 +46,12 @@ printable           [\x20-\x7E\t\n\r]
 0|[1-9][0-9]*               return NUM;
 (0|[1-9][0-9]*)b            return NUM_B;
 
-//TODO: finish STRING_MODE, handle unknown words (check error handling)
-// DO NOT USE FUNCTIONS HERE. scanner.lex only for token identification
-// calling functions will be in main.cpp (aside from error handling)
-// the current code does not handle hexadecimal
+    /*
+    TODO: finish STRING_MODE, handle unknown words (check error handling)
+    DO NOT USE FUNCTIONS HERE. scanner.lex only for token identification
+    calling functions will be in main.cpp (aside from error handling)
+    the current code does not handle hexadecimal 
+    */ 
 
 \"                              {
                                     BEGIN(STRING_MODE);
@@ -65,61 +67,72 @@ printable           [\x20-\x7E\t\n\r]
 <STRING_MODE>\\[\\\"nrt0]            {
                                     string_buf[buf_ptr++] = yytext[0];
                                      string_buf[buf_ptr++] = yytext[1];
-                                } // valid basic escapes
+                                } 
+                                /* valid basic escapes */
 
 <STRING_MODE>\\x(09|0[aA]|0[dD]|[2-6][0-9a-fA-F]|7[0-9a-eA-E])   {
                                                                 for(int i = 0; i < yyleng; i++){
                                                                     string_buf[buf_ptr++] = yytext[i];
                                                                 }
-                                                            } // valid hex escapes
+                                                            } 
+                                                            /* valid hex escapes*/
 
 <STRING_MODE>\\x[0-9a-fA-F]{2}       {
                                     output::errorUndefinedEscape(yytext + 1);
                                     //exit(1);
-                                } //invalid hex escapes
+                                } 
+                                /* invalid hex escapes */
 
 <STRING_MODE>\\x[^\"\n\r]{0,2}       {
                                     output::errorUndefinedEscape(yytext + 1);
-                                    //exit(1);
-                                } //malformed hex escapes
+                                    /* exit(1); */
+                                } 
+                                /* malformed hex escapes */
 
 <STRING_MODE>\\[^\n\r]               {
                                     output::errorUndefinedEscape(yytext + 1);
-                                    //exit(1);
-                                } // any other invalid escapes
+                                    /* exit(1); */
+                                } 
+                                /* any other invalid escapes */
 
 <STRING_MODE>\\?(\r\n|\r|\n)         {
                                     output::errorUnclosedString();
-                                    //exit(1);
-                                } //string terminated early
+                                    /* exit(1); */
+                                } 
+                                /* string terminated early */
 
 <STRING_MODE><<EOF>>                 {
                                     output::errorUnclosedString();
-                                    //exit(1);
-                                } //string terminated early
+                                    /* exit(1); */
+                                } 
+                                /* string terminated early */
 
 <STRING_MODE>\\                      {
                                     output::errorUnclosedString();
-                                    //exit(1);
-                                } //string terminated early
+                                    /* exit(1); */
+                                } 
+                                /* string terminated early */
 
 <STRING_MODE>([\x20-\x21\x23-\x5B\x5D-\x7E\t])+  {
                                                 for(int i = 0; i < yyleng; i++) {
                                                     string_buf[buf_ptr++] = yytext[i];
                                                 }
-                                            } //valid normal characters
+                                            } 
+                                            /* valid normal characters */
 
 <STRING_MODE>.                       {
                                     output::errorUnknownChar(yytext[0]);
-                                    //exit(1);
+                                    /* exit(1); */
                                 }
 
-{whitespace}+                   {} //do nothing since yylineno increases automatically
+{whitespace}+                   {} 
+                                    /* do nothing since yylineno increases automatically */
+
 .                               {
                                     output::errorUnknownChar(yytext[0]);
-                                    //exit(1);
+                                    /* exit(1); */
                                 }
 
 %%
-// User code section
+/* User code section */
 
