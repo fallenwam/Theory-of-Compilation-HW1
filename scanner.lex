@@ -44,9 +44,9 @@ printable           [\x20-\x7E\t\n\r]
 \/\/[^\r\n]*                return COMMENT;
 [a-zA-Z][a-zA-Z0-9]*        return ID;
 0|[1-9][0-9]*               return NUM;
-(NUM)b            return NUM_B;
+(0|[1-9][0-9]*)b            return NUM_B;
 
-TODO: finish STRING_MODE, handle unknown words (check error handling)
+//TODO: finish STRING_MODE, handle unknown words (check error handling)
 // DO NOT USE FUNCTIONS HERE. scanner.lex only for token identification
 // calling functions will be in main.cpp (aside from error handling)
 // the current code does not handle hexadecimal
